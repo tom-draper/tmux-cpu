@@ -1,4 +1,4 @@
-# tmux-cpu
+# tmux CPU
 
 Visualise CPU usage in your tmux status bar.
 
