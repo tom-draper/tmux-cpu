@@ -30,8 +30,8 @@ static inline int compare_desc(const void *a, const void *b) {
 
 // Print a colorized block based on CPU usage percentage
 static inline void print_colorized(int usage) {
-	// Hide very low usage to keep the status bar clean
-	if (usage < 5) { 
+	// Transparent (space) for very low usage
+	if (usage < 10) { 
 		putchar(' ');
 		return;
 	}
@@ -39,11 +39,31 @@ static inline void print_colorized(int usage) {
 	// Clamp usage to valid range
 	if (usage > 100) usage = 100;
 
-	// Color gradient: Yellow (low usage) to Red (high usage)
-	// Red stays at 255, Green transitions from 255 to 0
-	const int green = 255 - (((usage - 5) * 255) / 95);
+	int red, green;
 
-	printf("#[fg=#ff%02x00]█#[default]", green);
+	if (usage < 30) {
+		// 10-30%: Yellow (#ffff00)
+		red = 255;
+		green = 255;
+	} else if (usage < 50) {
+		// 30-50%: Yellow to Orange
+		// Transition: #ffff00 -> #ff8000
+		red = 255;
+		green = 255 - (((usage - 30) * 127) / 20);  // 255 -> 128
+	} else if (usage < 70) {
+		// 50-70%: Orange to Red-Orange
+		// Transition: #ff8000 -> #ff4000
+		red = 255;
+		green = 128 - (((usage - 50) * 64) / 20);  // 128 -> 64
+	} else {
+		// 70-100%: Red-Orange to Pure Red
+		// Transition: #ff4000 -> #ff0000
+		red = 255;
+		green = 64 - (((usage - 70) * 64) / 30);  // 64 -> 0
+		if (green < 0) green = 0;
+	}
+
+	printf("#[fg=#%02x%02x00]█#[default]", red, green);
 }
 
 int main(void) {
@@ -55,10 +75,10 @@ int main(void) {
 	// Read /proc/stat with single system call
 	int fd = open(PROC_STAT, O_RDONLY);
 	if (fd < 0) return 1;
-	
+
 	ssize_t bytes_read = read(fd, buf, sizeof(buf) - 1);
 	close(fd);
-	
+
 	if (bytes_read <= 0) return 1;
 	buf[bytes_read] = '\0';
 
@@ -67,14 +87,14 @@ int main(void) {
 	while (*line && cpu_count < MAX_CPUS) {
 		// Skip to cpu lines (cpu0, cpu1, etc.)
 		if (line[0] == 'c' && line[1] == 'p' && line[2] == 'u' && 
-		    line[3] >= '0' && line[3] <= '9') {
-			
+			line[3] >= '0' && line[3] <= '9') {
+
 			unsigned long long vals[8];
-			
+
 			// Fast parsing: skip "cpuN "
 			while (*line && *line != ' ') line++;
 			line++;
-			
+
 			// Parse 8 numbers
 			for (int i = 0; i < 8; i++) {
 				vals[i] = 0;
@@ -84,13 +104,13 @@ int main(void) {
 				}
 				line++;
 			}
-			
+
 			// Calculate work and total
 			current_stats[cpu_count].work = vals[0] + vals[1] + vals[2] + vals[5] + vals[6] + vals[7];
 			current_stats[cpu_count].total = current_stats[cpu_count].work + vals[3] + vals[4];
 			cpu_count++;
 		}
-		
+
 		// Skip to next line
 		while (*line && *line != '\n') line++;
 		if (*line == '\n') line++;
@@ -108,7 +128,7 @@ int main(void) {
 		close(fd);
 		return 1;
 	}
-	
+
 	if (st.st_size != sizeof(shared_state_t)) {
 		if (ftruncate(fd, sizeof(shared_state_t)) < 0) {
 			close(fd);
@@ -118,14 +138,14 @@ int main(void) {
 
 	// Memory-map the state file
 	shared_state_t *state = mmap(NULL, sizeof(shared_state_t), 
-	                              PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+							  PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	close(fd);  // Can close fd after mmap
-	
+
 	if (state == MAP_FAILED) return 1;
 
 	// Calculate usage percentages using previous state
 	int valid_prev = (state->cpu_count == cpu_count);
-	
+
 	for (int i = 0; i < cpu_count; i++) {
 		if (valid_prev) {
 			unsigned long long total_diff = current_stats[i].total - state->total[i];
