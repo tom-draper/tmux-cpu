@@ -17,7 +17,7 @@ typedef struct {
 	unsigned long long total[MAX_CPUS];
 } shared_state_t;
 
-// Data Structure for CPU time snapshot
+// CPU time snapshot
 typedef struct {
 	unsigned long long total;
 	unsigned long long work;
@@ -30,7 +30,7 @@ static inline int compare_desc(const void *a, const void *b) {
 
 // Print a colorized block based on CPU usage percentage
 static inline void print_colorized(int usage) {
-	// Transparent (space) for very low usage
+	// Transparent (space) for very low usage - tmux status bar usually already green
 	if (usage < 10) { 
 		putchar(' ');
 		return;
@@ -40,7 +40,6 @@ static inline void print_colorized(int usage) {
 	if (usage > 100) usage = 100;
 
 	int red, green;
-
 	if (usage < 30) {
 		// 10-30%: Yellow (#ffff00)
 		red = 255;
