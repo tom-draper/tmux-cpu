@@ -3,7 +3,7 @@
 Visualize CPU usage in your tmux status bar.
 
 ```
-gcc -03 -o /usr/local/bin/tmux-cpu tmux-cpu.c
+gcc -O3 -o /usr/local/bin/tmux-cpu tmux-cpu.c
 ```
 
 Then in `~/.tmux.conf`:
